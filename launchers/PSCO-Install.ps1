@@ -131,6 +131,24 @@ if (Test-Path (Join-Path $dist "scripts\install.ps1")) {
 }
 if (-not (Test-Path (Join-Path $dist "scripts\install.ps1"))) { throw "Bad package layout (dist\scripts\install.ps1 not found)." }
 
+# ۴.۵) اگر docker روی PATH هست ولی موتور جواب نمی‌دهد (حالتِ رایجِ بعد از ری‌استارت)،
+# اول موتور را روشن کن و صبر کن — وگرنه install.ps1 بلوکِ پیش‌نیازها را رد می‌کند و
+# docker load بی‌صدا شکست می‌خورد (روی ماشینِ staging دیده شد).
+function Test-Engine { try { docker version *>$null; return ($LASTEXITCODE -eq 0) } catch { return $false } }
+if ((Get-Command docker -ErrorAction SilentlyContinue) -and -not (Test-Engine)) {
+    Write-Host "Container engine is not running - starting Rancher Desktop..."
+    try { & rdctl start 2>$null | Out-Null } catch {
+        $rdApp = Join-Path $env:LOCALAPPDATA "Programs\Rancher Desktop\Rancher Desktop.exe"
+        if (Test-Path $rdApp) { Start-Process $rdApp }
+    }
+    $deadline = (Get-Date).AddMinutes(8)
+    while (-not (Test-Engine) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 10 }
+    if (-not (Test-Engine)) {
+        Write-Warning "Engine still not ready. Open Rancher Desktop, wait until it is Running, then run this installer again (downloads are kept)."
+        exit 1
+    }
+}
+
 # ۵) اجرای نصبِ اصلی
 Write-Host "==== Running setup (Rancher / WSL / images / stack) ===="
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dist "scripts\install.ps1") -InstallDir $InstallDir
@@ -139,6 +157,16 @@ Write-Host "==== Running setup (Rancher / WSL / images / stack) ===="
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Warning "Windows needs one restart. After restarting, run this installer again to continue."
     exit 0
+}
+
+# ۵.۵) راستی‌آزماییِ نصب — install.ps1 ممکن است بی‌صدا شکست بخورد؛ قبل از آپدیت و
+# پاک‌سازیِ کشِ چندگیگی مطمئن شو استک واقعاً بالاست، وگرنه کش را نگه دار و خارج شو.
+$psco = @(); try { $psco = @(docker ps --filter "name=psco" --format "{{.Names}}") } catch {}
+if ($psco.Count -lt 5) {
+    Write-Warning "Setup did not complete (PSCO stack is not running - found $($psco.Count) containers)."
+    Write-Host "Fix the issue (usually: wait until Rancher Desktop is Running), then run this installer again."
+    Write-Host "Downloaded files are kept - no re-download will be needed."
+    exit 1
 }
 
 # ۶) گرفتنِ آخرین آپدیت (اگر Releaseای نبود بی‌صدا رد می‌شود)
