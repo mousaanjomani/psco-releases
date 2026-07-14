@@ -112,6 +112,9 @@ $up = Get-ChildItem $work -Recurse -Filter update.ps1 | Select-Object -First 1
 if (-not $up) { throw "update.ps1 not found inside the update package." }
 Write-Host "==== Applying update ===="
 & powershell -NoProfile -ExecutionPolicy Bypass -File $up.FullName -InstallDir $InstallDir
+if ($LASTEXITCODE -ne 0) {
+    throw "Update FAILED (update.ps1 exit $LASTEXITCODE) - nothing was finalized. Fix the issue above and run the updater again."
+}
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 
 if (-not $NoBrowser) { Start-Sleep -Seconds 3; Start-Chrome "http://localhost" }
