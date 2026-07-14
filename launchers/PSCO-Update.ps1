@@ -21,8 +21,9 @@ $ErrorActionPreference = "Stop"
 $Token = "$Token".Trim().Trim('"')
 
 # تشخیصِ خودکارِ مسیرِ نصب — نصب لزوماً روی C:\PSCO نیست (staging=D:\PSCO، مشتری=E:\PSCO).
-# اگر مسیرِ داده‌شده نصبِ واقعی نبود، همهٔ درایوها را برای <drive>:\PSCO می‌گردیم.
-if (-not (Test-Path (Join-Path $InstallDir "docker-compose.psco.yml"))) {
+# نصبِ واقعی = compose **و** .env (نسخهٔ قدیمیِ همین اسکریپت compose را به مسیرِ غلط کپی
+# می‌کرد؛ نبودِ .env لوش می‌دهد). اگر مسیرِ داده‌شده واقعی نبود، درایوها را می‌گردیم.
+if (-not ((Test-Path (Join-Path $InstallDir "docker-compose.psco.yml")) -and (Test-Path (Join-Path $InstallDir ".env")))) {
     $found = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root "PSCO" } |
              Where-Object { (Test-Path (Join-Path $_ "docker-compose.psco.yml")) -and (Test-Path (Join-Path $_ ".env")) } |
              Select-Object -First 1
