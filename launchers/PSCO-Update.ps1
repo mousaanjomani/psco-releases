@@ -20,6 +20,16 @@ $ErrorActionPreference = "Stop"
 # توکنِ خالی/فاصله/نقل‌قولِ به‌جامانده از cmd (مثل -Token "") نباید هدر Authorization بسازد.
 $Token = "$Token".Trim().Trim('"')
 
+# تشخیصِ خودکارِ مسیرِ نصب — نصب لزوماً روی C:\PSCO نیست (staging=D:\PSCO، مشتری=E:\PSCO).
+# اگر مسیرِ داده‌شده نصبِ واقعی نبود، همهٔ درایوها را برای <drive>:\PSCO می‌گردیم.
+if (-not (Test-Path (Join-Path $InstallDir "docker-compose.psco.yml"))) {
+    $found = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Join-Path $_.Root "PSCO" } |
+             Where-Object { (Test-Path (Join-Path $_ "docker-compose.psco.yml")) -and (Test-Path (Join-Path $_ ".env")) } |
+             Select-Object -First 1
+    if ($found) { $InstallDir = $found; Write-Host "Detected PSCO install: $InstallDir" }
+    else { throw "PSCO installation not found (looked for <drive>:\PSCO). Run with -InstallDir <path>." }
+}
+
 function Start-Chrome($url) {
     $paths = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
                "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
