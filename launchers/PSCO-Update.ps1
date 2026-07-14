@@ -104,6 +104,14 @@ if ($Token) {
     Download-WithProgress $asset.browser_download_url $zip "Downloading update"
 }
 
+# دانلودِ ناقص (قطعیِ اتصال) نباید به docker load برسد — حجم باید دقیقاً با حجمِ
+# اعلام‌شدهٔ GitHub یکی باشد (روی staging یک دانلودِ بریده، آپدیتِ خراب ساخته بود).
+$got = (Get-Item $zip).Length
+if ($asset.size -gt 0 -and $got -ne $asset.size) {
+    Remove-Item $zip -Force -ErrorAction SilentlyContinue
+    throw ("Download incomplete ({0:N0} of {1:N0} MB) - check the connection and run the updater again." -f ($got / 1MB), ($asset.size / 1MB))
+}
+
 # استخراج + اجرای update.ps1
 $work = Join-Path $env:TEMP "psco-update-extract"
 Extract-Zip $zip $work
